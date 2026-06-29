@@ -95,3 +95,14 @@ async def create_order(
         await db.rollback()
         logger.error(f"Order creation failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/orders")
+async def get_orders(db: AsyncSession = Depends(get_db)):
+    # Add your logic here to fetch orders from your database
+    # Example:
+    # result = await db.execute(text("SELECT * FROM orders"))
+    # orders = result.mappings().all()
+    # return orders
+    
+    # Returning a mock list for now to test the connection:
+    return [{"id": 1, "product": "Test Item", "quantity": 1, "status": "Completed"}]
