@@ -2,24 +2,30 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# 1. Grab the variable from your Railway environment dashboard
+# 1. Grab your database URL from Railway variables
 raw_url = os.getenv("DATABASE_URL")
 
-# 2. Complete fallback if the environment variable comes up empty
+# 2. Hardcoded fallback (Make sure to replace this with your actual Neon string if needed)
 if not raw_url:
     raw_url = "postgresql://neondb_owner:npg_Gt0Xk6iSsOYB@ep-mute-night-aopfbq6e-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
-# 3. Carefully swap the scheme to asyncpg while keeping the port and parameters intact
+# 3. Programmatically strip any trailing query parameters like ?sslmode=require
+# This prevents asyncpg from throwing keyword argument errors
+if "?" in raw_url:
+    raw_url = raw_url.split("?")[0]
+
+# 4. Swap out the scheme to use the asyncpg driver protocol
 if raw_url.startswith("postgresql://"):
     DATABASE_URL = raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 else:
     DATABASE_URL = raw_url
 
-# 4. Fire up the async connection pool engine
+# 5. Fire up the async engine passing the SSL flag explicitly to the driver arguments
 engine = create_async_engine(
     DATABASE_URL, 
     echo=True,
-    future=True
+    future=True,
+    connect_args={"ssl": True}  # Neon requires SSL, this is the format asyncpg loves
 )
 
 AsyncSessionLocal = sessionmaker(
