@@ -57,10 +57,28 @@ async def create_order(
     try:
         product = order_data.get("product", "Unknown Item")
         qty = order_data.get("quantity", 1)
-        mock_id = 1 
-        background_tasks.add_task(fallback_background_task, mock_id, product, qty)
-        return {"id": mock_id, "product": product, "quantity": qty, "status": "Completed"}
+
+        # 1. Create the model instance
+        new_order = Order(product=product, quantity=qty, status="Completed")
+        
+        # 2. Add to session and commit
+        db.add(new_order)
+        await db.commit()
+        await db.refresh(new_order) # This updates new_order with the real ID from Postgres
+        
+        # 3. Push the external HTTP task
+        background_tasks.add_task(fallback_background_task, new_order.id, product, qty)
+
+        return {
+            "id": new_order.id,
+            "product": new_order.product,
+            "quantity": new_order.quantity,
+            "status": new_order.status,
+            "message": "Order saved to database successfully."
+        }
     except Exception as e:
+        await db.rollback()
+        logger.error(f"Order creation failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/orders")
