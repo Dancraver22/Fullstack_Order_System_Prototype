@@ -8,13 +8,11 @@ import logging
 
 from app.database import engine, Base, get_db
 
-# Configure clean logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Full-Stack Operations Center API")
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,54 +21,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Startup Lifespan
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Initializing database tables...")
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables initialized successfully.")
-    except Exception as e:
-        logger.error(f"Database initialization failed: {str(e)}")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-# Health check
-@app.get("/api/health")
-async def health_check(db: AsyncSession = Depends(get_db)):
-    try:
-        await db.execute(text("SELECT 1"))
-        return {"status": "healthy", "database": "connected"}
-    except Exception as e:
-        return {"status": "unhealthy", "database": str(e)}
-
-# --- NEW: GET route to populate your OrderTable ---
+# 1. ADDED: GET route to fix 405 error
 @app.get("/api/orders")
 async def get_orders(db: AsyncSession = Depends(get_db)):
     try:
-        # Fetching all orders, sorted by newest first
-        result = await db.execute(text("SELECT * FROM orders ORDER BY id DESC"))
-        # Converting rows to dicts for frontend consumption
-        orders = [dict(row) for row in result.mappings()]
-        return orders
+        # Fetching all orders
+        result = await db.execute(text("SELECT * FROM orders ORDER BY created_at DESC"))
+        return [dict(row) for row in result.mappings()]
     except Exception as e:
-        logger.error(f"Failed to fetch orders: {str(e)}")
-        raise HTTPException(status_code=500, detail="Could not retrieve orders")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# Background task for diagnostics
-async def fallback_background_task(order_id: int, product: str, qty: int):
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                "https://httpbin.org/post", 
-                json={"order_id": order_id, "product": product, "quantity": qty},
-                timeout=5.0
-            )
-            response.raise_for_status()
-            logger.info("Diagnostic data successfully forwarded.")
-        except Exception as e:
-            logger.warning(f"External API down: {str(e)}")
-
-# --- FIXED: POST route with correct column mapping ---
+# 2. FIXED: POST route to match DB schema (product_name)
 @app.post("/api/orders")
 async def create_order(
     order_data: dict, 
@@ -78,22 +44,28 @@ async def create_order(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        # Use 'product_name' to match your database schema
+        # Use 'product_name' to match DB schema
         product_name = order_data.get("product_name", "Unknown Item")
         qty = order_data.get("quantity", 1)
 
-        # SQL execution using 'product_name' to avoid the 500 error
         await db.execute(
             text("INSERT INTO orders (product_name, quantity, status) VALUES (:p, :q, 'pending')"),
             {"p": product_name, "q": qty}
         )
         await db.commit()
         
-        # Trigger background diagnostics
-        background_tasks.add_task(fallback_background_task, 0, product_name, qty)
-
-        return {"message": "Order created successfully"}
+        return {"message": "Order created"}
     except Exception as e:
         await db.rollback()
-        logger.error(f"Order creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 3. ADDED: DELETE route to fix "Failed to clear"
+@app.delete("/api/orders")
+async def delete_all_orders(db: AsyncSession = Depends(get_db)):
+    try:
+        await db.execute(text("DELETE FROM orders"))
+        await db.commit()
+        return {"message": "All orders cleared"}
+    except Exception as e:
+        await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))

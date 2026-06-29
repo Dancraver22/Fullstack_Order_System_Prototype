@@ -87,7 +87,9 @@ export default function OrderTable({
                       </span>
                     </td>
                     <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                      {new Date(order.created_at).toLocaleTimeString()}
+                      {order.created_at 
+                        ? new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                        : "N/A"}
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: "8px" }}>
