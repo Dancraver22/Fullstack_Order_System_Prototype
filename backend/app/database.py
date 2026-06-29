@@ -7,7 +7,7 @@ raw_url = os.getenv("DATABASE_URL")
 
 # 2. Complete fallback if the environment variable comes up empty
 if not raw_url:
-    raw_url = "postgresql://postgres:Blb60601q2w3@db.nxmxhonkzxwzfjdxjmga.supabase.co:6543/postgres"
+    raw_url = "postgresql://postgres:[Blb60601q2w3]@db.nxmxhonkzxwzfjdxjmga.supabase.co:5432/postgres"
 
 # 3. Carefully swap the scheme to asyncpg while keeping the port and parameters intact
 if raw_url.startswith("postgresql://"):
