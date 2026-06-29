@@ -2,31 +2,30 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./orders.db")
+# 1. Fetch your clean Railway environment variable 
+raw_url = os.getenv("DATABASE_URL")
 
-# Safety Override: Supabase provides connection strings starting with 'postgres://'.
-# Async SQLAlchemy requires 'postgresql+asyncpg://' to use the async driver.
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+# 2. Safety Check: If it begins with postgresql://, explicitly rewrite it to use asyncpg
+if raw_url and raw_url.startswith("postgresql://"):
+    DATABASE_URL = raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    DATABASE_URL = raw_url
 
-# Handle transaction mode string optimization if pooling parameters are appended
-if "?sslmode=" not in DATABASE_URL and "sqlite" not in DATABASE_URL:
-    # Ensures clean SSL handshake with Supabase servers
-    if "?" in DATABASE_URL:
-        DATABASE_URL += "&sslmode=require"
-    else:
-        DATABASE_URL += "?sslmode=require"
+# Fallback string tracking only if environment variables are completely missing
+if not DATABASE_URL:
+    DATABASE_URL = "postgresql://postgres:[Blb60601q2w3]@db.nxmxhonkzxwzfjdxjmga.supabase.co:5432/postgres"
 
-# Create async engine
-engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+# 3. Create the asynchronous database engine safely
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=True,
+    future=True
+)
 
-# Sessionmaker for async sessions
 AsyncSessionLocal = sessionmaker(
     bind=engine,
     class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False
+    expire_on_commit=False
 )
 
 Base = declarative_base()
