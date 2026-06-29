@@ -3,10 +3,9 @@ import httpx
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import text, select
 import logging
 from app.models import Order
-
 from app.database import engine, Base, get_db
 
 # Configure clean logging
@@ -46,8 +45,24 @@ async def health_check(db: AsyncSession = Depends(get_db)):
 
 @app.get("/api/orders")
 async def get_orders(db: AsyncSession = Depends(get_db)):
-    # Add your database query here
-    return []
+    try:
+        # Fetch all orders from the database
+        result = await db.execute(select(Order))
+        orders = result.scalars().all()
+        
+        # Convert to dictionary for the frontend
+        return [
+            {
+                "id": o.id, 
+                "product": o.product_name, 
+                "quantity": o.quantity, 
+                "status": o.status
+            } 
+            for o in orders
+        ]
+    except Exception as e:
+        logger.error(f"Failed to fetch orders: {str(e)}")
+        raise HTTPException(status_code=500, detail="Could not retrieve orders")
 
 @app.post("/api/orders")
 async def create_order(
@@ -56,23 +71,19 @@ async def create_order(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        # Get data from request
         product = order_data.get("product", "Unknown Item")
         qty = order_data.get("quantity", 1)
 
-        # Create new record matching the table columns seen in your logs
         new_order = Order(
             product_name=product, 
             quantity=qty, 
             status="Completed"
         )
         
-        # Save to database
         db.add(new_order)
         await db.commit()
         await db.refresh(new_order)
 
-        # Trigger background task
         background_tasks.add_task(fallback_background_task, new_order.id, product, qty)
 
         return {
@@ -89,17 +100,14 @@ async def create_order(
 
 @app.delete("/api/orders")
 async def delete_orders():
-    # Placeholder to stop the 405 errors
     return {"message": "Delete requested"}
 
 @app.delete("/api/orders/{order_id}")
 async def delete_order(order_id: int):
-    # Placeholder to stop the 404 errors
     return {"message": f"Order {order_id} deleted"}
 
 @app.post("/webhooks/payments")
 async def handle_payment_webhook():
-    # Placeholder to stop the 404 errors
     return {"status": "Webhook received"}
 
 # --- BACKGROUND TASK ---
