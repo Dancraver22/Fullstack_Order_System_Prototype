@@ -56,26 +56,31 @@ async def create_order(
     db: AsyncSession = Depends(get_db)
 ):
     try:
+        # Get data from request
         product = order_data.get("product", "Unknown Item")
         qty = order_data.get("quantity", 1)
 
-        # 1. Create the model instance
-        new_order = Order(product=product, quantity=qty, status="Completed")
+        # Create new record matching the table columns seen in your logs
+        new_order = Order(
+            product_name=product, 
+            quantity=qty, 
+            status="Completed"
+        )
         
-        # 2. Add to session and commit
+        # Save to database
         db.add(new_order)
         await db.commit()
-        await db.refresh(new_order) # This updates new_order with the real ID from Postgres
-        
-        # 3. Push the external HTTP task
+        await db.refresh(new_order)
+
+        # Trigger background task
         background_tasks.add_task(fallback_background_task, new_order.id, product, qty)
 
         return {
             "id": new_order.id,
-            "product": new_order.product,
-            "quantity": new_order.quantity,
-            "status": new_order.status,
-            "message": "Order saved to database successfully."
+            "product": product,
+            "quantity": qty,
+            "status": "Completed",
+            "message": "Order saved to database."
         }
     except Exception as e:
         await db.rollback()
