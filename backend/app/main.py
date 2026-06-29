@@ -50,13 +50,14 @@ async def get_orders(db: AsyncSession = Depends(get_db)):
         result = await db.execute(select(Order))
         orders = result.scalars().all()
         
-        # Convert to dictionary for the frontend
+        # Convert to dictionary with properly formatted ISO dates
         return [
             {
                 "id": o.id, 
                 "product": o.product_name, 
                 "quantity": o.quantity, 
-                "status": o.status
+                "status": o.status,
+                "created_at": o.created_at.isoformat() if o.created_at else None
             } 
             for o in orders
         ]
