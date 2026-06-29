@@ -5,8 +5,9 @@ import OrderForm from "../components/OrderForm";
 import OrderTable, { Order } from "../components/OrderTable";
 import AIDiagnostic from "../components/AIDiagnostic";
 
-const API_BASE_URL = "http://localhost:8001";
-const WEBHOOK_SECRET = "super_secret_webhook_key";
+// Updated to use environment variables for production readiness
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const WEBHOOK_SECRET = process.env.NEXT_PUBLIC_WEBHOOK_SECRET || "super_secret_webhook_key";
 
 export default function Home() {
   const [orders, setOrders] = useState<Order[]>([]);
