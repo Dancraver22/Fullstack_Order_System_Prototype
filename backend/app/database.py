@@ -2,21 +2,20 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# 1. Pull the live variable from your Railway Settings panel
+# 1. Grab the variable from your Railway environment dashboard
 raw_url = os.getenv("DATABASE_URL")
 
-# 2. Fallback only if Railway's dashboard environment variable is totally blank
+# 2. Complete fallback if the environment variable comes up empty
 if not raw_url:
-    # Uses port 6543 for optimized container routing
-    raw_url = "postgresql://postgres:Blb60601q2w3@db.nxmxhonkzxwzfjdxjmga.supabase.co:6543/postgres?sslmode=disable"
+    raw_url = "postgresql://postgres:Blb60601q2w3@db.nxmxhonkzxwzfjdxjmga.supabase.co:6543/postgres"
 
-# 3. Explicitly transform the connection protocol to use the async driver layout
+# 3. Carefully swap the scheme to asyncpg while keeping the port and parameters intact
 if raw_url.startswith("postgresql://"):
     DATABASE_URL = raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 else:
     DATABASE_URL = raw_url
 
-# 4. Spin up the async engine connection pool securely
+# 4. Fire up the async connection pool engine
 engine = create_async_engine(
     DATABASE_URL, 
     echo=True,
