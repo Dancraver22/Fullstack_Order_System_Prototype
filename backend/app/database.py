@@ -5,12 +5,11 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 # 1. Grab your database URL from Railway variables
 raw_url = os.getenv("DATABASE_URL")
 
-# 2. Hardcoded fallback (Make sure to replace this with your actual Neon string if needed)
+# 2. FIXED: Completely clean fallback with NO passwords exposed
 if not raw_url:
-    raw_url = "postgresql://neondb_owner:npg_Gt0Xk6iSsOYB@ep-mute-night-aopfbq6e-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    raw_url = "postgresql://postgres:local_password@localhost:5432/neondb"
 
-# 3. Programmatically strip any trailing query parameters like ?sslmode=require
-# This prevents asyncpg from throwing keyword argument errors
+# 3. Strip query parameters
 if "?" in raw_url:
     raw_url = raw_url.split("?")[0]
 
@@ -20,12 +19,12 @@ if raw_url.startswith("postgresql://"):
 else:
     DATABASE_URL = raw_url
 
-# 5. Fire up the async engine passing the SSL flag explicitly to the driver arguments
+# 5. Fire up the async engine
 engine = create_async_engine(
     DATABASE_URL, 
     echo=True,
     future=True,
-    connect_args={"ssl": True}  # Neon requires SSL, this is the format asyncpg loves
+    connect_args={"ssl": True}
 )
 
 AsyncSessionLocal = sessionmaker(
